@@ -11,7 +11,33 @@ Created on Fri Jun  8 14:38:17 2018
 import numpy as np
 from enterprise.signals.utils import create_gw_antenna_pattern
 
-def calculate_nullstream_matrix(source, pulsar_locations):
+def nullstream_matrix(source, pulsar_locations):
+    """
+    Calculate the null stream construction matrix.
+    
+    Matrix M makes linear combinations of PTA data from N detectors that form N-2
+    outputs in which the gravitational wave from direction source is cancelled 
+    (these are the null streams). The first two rows of M instead make two linear
+    combinations that make the gravitational wave polarisations h+ and hx.
+    
+    Parameters
+    ----------
+    source: array or list
+        Location of the gravitational wave to cancel out. First element is
+        theta (polar) coordinate between 0 and pi, second element is phi 
+        (azimuthal) coordinate between 0 and 2 pi.
+    pulsar_locations: array
+        Locations of the pulsars that form the PTA. Shape is (n, 2), where n>3
+        is the number of pulsars in the PTA. The first column is theta (polar) 
+        coordinates of the pulsar between 0 and pi, the second is phi 
+        (azimuthal) coordinate between 0 and 2 pi.
+        
+    Returns
+    -------
+    NumPy Array
+        (nxn) Matrix that transforms data from n pulsars into 2 gravitational
+        wave polarisations and n-2 null streams given a GW at source.
+    """
     n = len(pulsar_locations)
     if n < 3:
         raise ValueError('Can not calculate null streams for fewer than 3 pulsars')
@@ -59,3 +85,28 @@ def calculate_nullstream_matrix(source, pulsar_locations):
     null_stream_matrix[:2] = response_mpinv
     return null_stream_matrix
 
+def nullstreams(data, source, pulsar_locations):
+    """
+    Transform data from n pulsars onto 2 GW polarisations and n-2 null streams
+    
+    Parameters
+    ----------
+    data: array
+        data from n pulsars in the PTA at the same time(s) or frequency(ies)
+    source: array or list
+        Location of the gravitational wave to cancel out. First element is
+        theta (polar) coordinate between 0 and pi, second element is phi 
+        (azimuthal) coordinate between 0 and 2 pi.
+    pulsar_locations: array
+        Locations of the pulsars that form the PTA. Shape is (n, 2), where n>3
+        is the number of pulsars in the PTA. The first column is theta (polar) 
+        coordinates of the pulsar between 0 and pi, the second is phi 
+        (azimuthal) coordinate between 0 and 2 pi.
+    
+    Returns
+    -------
+    NumPy Array
+        Same shape as data. Transformed data onto two gravitational wave 
+        polarisations and n-2 null streams
+    """
+    pass
