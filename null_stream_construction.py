@@ -105,8 +105,17 @@ def nullstreams(data, source, pulsar_locations):
     
     Returns
     -------
-    NumPy Array
-        Same shape as data. Transformed data onto two gravitational wave 
-        polarisations and n-2 null streams
+    array
+        Reconstructed Fplus polarisation
+    array
+        Reconstructed Fcross polarisatin
+    array
+        n-2 null streams
     """
-    pass
+    ns_matrix = nullstream_matrix(source, pulsar_locations)
+    transformed_data = np.dot(ns_matrix, data)
+    Fplus = transformed_data[0]
+    Fcross = transformed_data[1]
+    nullstreams = transformed_data[2:]
+    
+    return Fplus, Fcross, nullstreams
