@@ -34,7 +34,7 @@ from ephem import Ecliptic, Equatorial
 # downloaded IPTA DR2 in /Documents/data/DR2
 # maybe try to use .par files from DR2/release/VersionB/... for a bunch of pulsars?
 
-source = '/home/jgoldstein/Documents/data/DR2/release/VersionB'
+SOURCE = '/home/jgoldstein/Documents/data/DR2/release/VersionB'
 
 def fake_obs_times(source, cadence=20):
     """
@@ -44,6 +44,7 @@ def fake_obs_times(source, cadence=20):
     with a given average cadence (in days).
     
     Parameters
+    ----------
     source: str
         path to pulsars with .par files in 'pulsar'/'pulsar'.IPTADR2.par
     cadence: scalar
@@ -70,13 +71,34 @@ def fake_obs_times(source, cadence=20):
                 elif 'FINISH' in line:
                     finish = float(line.split()[1])
                     break
-                
+        
+        # pick n random observation times so that total time / n = cadence
         num_obs = int((finish - start) / cadence)
         obs = np.sort(np.random.randint(start, high=finish, size=num_obs))
         observation_times.append(obs)
     
     return pulsars, observation_times
     
+
+def make_fake_pulsar(source, pulsar_name, obs_times, toa_err=1e-6):
+    """
+    Make an LT fakepulsar
     
-            
+    Parameters
+    ----------
+    source: str
+        path to pulsars with .par files in 'pulsar'/'pulsar'.IPTADR2.pa
+    pulsar_name: str
+        name of the pulsar (is also the directory with files in source)
+    obs_times: array-like
+        times of observation in MJD
+    toa_err: float
+        toa error in us
+        
+    Returns
+    -------
+    LT.fakepulsar object
+    """
+    par_path = os.path.join(source, pulsar_name, pulsar_name+'.IPTADR2.par')
+    return LT.fakepulsar(par_path, obs_times, toa_err)
     
