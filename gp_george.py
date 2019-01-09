@@ -6,6 +6,49 @@ Created on Mon Dec 17 2018
 @author: jgoldstein
 
 example: http://dfm.io/george/current/user/quickstart
+
+
+PTA data problem:
+    PTA data consists of a set of TOA residuals for each pulsar, observed at
+    unevenly sampled times over a time span of ~5-15 years. Usually these data
+    are analysed in the time domain. However, if we want to implement the null
+    stream method, we need data points with either each pulsar observation at 
+    the same times, or at the same frequencies. Since the time spans do not all
+    overlap (so time coincident measurements would have to be exterpolated), 
+    I want to try this in the frequency domain. So, the problem is to get a
+    frequency domain representation of unevenly sampled data, at given 
+    evenly sampled frequencies (so they can be the same for each pulsar).
+    
+    The current plan to do this is as follows (but no idea whether this is a 
+    good idea): Estimate (interpolate) TOA residuals at a set of evenly sampled
+    times, so that the fft of these points gives the desired FD representation.
+    We can use a Gaussian Process (GP) to do this estimate. The GP assumes a
+    prior distribution (set by the kernel/covariance function) of functions. We
+    then provide a training set of the unevenly sampled data points (with some 
+    error), which is used as a condition for the GP's functions (they have to
+    go through the given points). We obtain a posterior distribution of
+    functions which can be used to predict a given set of target points (the 
+    evenly sampled points). Any such (finite) set of target points follows a
+    join gaussian distribution for which we can compute the covariance matrix.
+    
+    Note on the frequency range we can use: Since the true Nyquist frequency 
+    of the unevenly sampled times is practically infinite (>> PTA frequencies 
+    of interest), it's set either by the integration time of the observations
+    (1/Tint ~ 1/30 minutes = 5.5e-4 Hz) or we can choose to cut if off based
+    on our astrophysical prior (fGW < 1e-6 Hz or something). This then gives us
+    the desired time step for our target, evenly sampled times dt = 2/fmax. The
+    minimum frequency is determined by the total time span fmin=1/T, which we
+    can't really change anyway.
+    
+    Discussion points:
+        - Is the output of the GP suitable for our analysis? I.e. a set of 
+        points with a join guassian distribution.
+        - The GP is clearly not the best method for the toy problem, since we 
+        know we're sampling a sinusoid there (fitting a sinusoid would be a lot
+        better). How does this compare to the actual PTA data?
+        - Computational feasability?
+        - The GP requires a choice of kernal (= covariance function for the 
+        prior of the GP) and a value (length scale?). What should we use?
 """
 
 import numpy as np
@@ -41,7 +84,8 @@ def george_example(seed=None, ndata=10):
     fig = plot_gp_stuff(t, mu, cov, realy, x, y, yerr)
     return fig
 
-def plot_gp_stuff(x_data, y_data, y_err, x_gp, y_gp, cov, true_signal):
+def plot_gp_stuff(x_data, y_data, y_err, x_gp, y_gp, cov, true_signal,
+                  x_name='input variable', y_name='output variable'):
     fig = plt.figure(figsize=(12, 5))
     ax = fig.add_subplot(121)
     if true_signal is not None:
@@ -53,10 +97,14 @@ def plot_gp_stuff(x_data, y_data, y_err, x_gp, y_gp, cov, true_signal):
     ax.fill_between(x_gp, y_gp-std, y_gp+std, color='k', alpha=0.2)
     ax.errorbar(x_data, y_data, yerr=y_err, fmt='r.', label='data')
     ax.legend(loc='best')
+    ax.set_xlabel(x_name)
+    ax.set_ylabel(y_name)
+    ax.set_title('GP data and estimate')
     
     ax2 = fig.add_subplot(122)
     im = ax2.imshow(cov.T)
     plt.colorbar(im, ax=ax2)
+    ax2.set_title('GP covariance matrix')
     
     fig.tight_layout()
     return fig
@@ -64,7 +112,8 @@ def plot_gp_stuff(x_data, y_data, y_err, x_gp, y_gp, cov, true_signal):
 
 def gp_estimate(x, x_data, y_data, y_err, kernel_value=1.0):
     """
-    Use a simple GP to estimate values at points x given data at points (x_data, y_data).
+    Use a simple george GP (exponential-squared kernel) to estimate values 
+    at points x given data at points (x_data, y_data).
     
     Parameters
     ----------
@@ -104,18 +153,29 @@ def round_to_p2(x):
     p = np.log2(x)
     return int(2 ** np.ceil(p))
 
-def get_target_times(ti, tf, fmin=None, fmax=0.1):
-    T = tf - ti
-    if fmin is None:
-        fmin = 1/T
+def get_target_times(ti, tf, fmax=0.1):
+    """
+    Calculate desired target times given initial time, final time and
+    maximum frequency.
     
+    Time step is calculated using fmax, then the number of points is rounded up
+    to get a power of two.
+    
+    Parameters
+    ----------
+    ti, tf: float
+        initial and final time (days)
+    fmax: float
+        maximum frequency used to determine time step
+        default = 0.1 (days^-1)
+    """
+    T = tf - ti
     # target time step is given by desired fmax
     # adjust to get a power of two for the number of samples
     Dt_try = 2 * (1/fmax)
     n = round_to_p2(T / Dt_try + 1)
-    #Dt = T / (n - 1)
+    #new time step will be Dt = T / (n - 1)
     target_times = np.linspace(ti, tf, num=n, endpoint=True)
-    
     return target_times    
 
 def example_signal(t, f0):
@@ -150,7 +210,8 @@ def toy_problem(yerr=0.0, seed=None):
     
     # signal at target times for comparison
     true_signal = example_signal(target_times, fGW)
-    fig1 = plot_gp_stuff(obs_times, obs_signal, yerr, target_times, gp_wnoise, cov, true_signal)
+    fig1 = plot_gp_stuff(obs_times, obs_signal, yerr, target_times, gp_wnoise, 
+                         cov, true_signal, x_name='time', y_name='TOA residual')
     
     ## FFT of gp estimated points, compare with densesly sampled times and true fGW
     ft_gp_nonoise = np.fft.rfft(gp_nonoise)
@@ -168,6 +229,7 @@ def toy_problem(yerr=0.0, seed=None):
     ax.set_ylim(ymin, ymax)
     ax.set_xlabel('frequency')
     ax.legend(loc='best')
+    ax.set_title('rfft')
     
     ax2 = fig2.add_subplot(122)
     ax2.set_yscale('log')
@@ -179,9 +241,11 @@ def toy_problem(yerr=0.0, seed=None):
     ax2.plot(freqs, ft_gp_wnoise_sq, 'k--', label='gp w/ noise')
     ymin, ymax = ax2.get_ylim()
     ax2.vlines(fGW, ymin, ymax, color='g', zorder=0, label='fGW')
-    ax2.set_ylim(ymin, ymax)
+    new_ymin = min(ft_true_sq[1:]) / 10
+    ax2.set_ylim(new_ymin, ymax)
     ax2.set_xlabel('frequency')
     ax2.legend(loc='best')
+    ax2.set_title('$|\mathrm{rfft}|^2$')
     
     fig2.tight_layout()
     
