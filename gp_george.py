@@ -14,7 +14,7 @@ PTA data problem:
     are analysed in the time domain. However, if we want to implement the null
     stream method, we need data points with either each pulsar observation at 
     the same times, or at the same frequencies. Since the time spans do not all
-    overlap (so time coincident measurements would have to be exterpolated), 
+    overlap (so time coincident measurements would have to be extrapolated), 
     I want to try this in the frequency domain. So, the problem is to get a
     frequency domain representation of unevenly sampled data, at given 
     evenly sampled frequencies (so they can be the same for each pulsar).
@@ -49,6 +49,13 @@ PTA data problem:
         - Computational feasability?
         - The GP requires a choice of kernal (= covariance function for the 
         prior of the GP) and a value (length scale?). What should we use?
+        
+    Notes:
+        - compare with "normal" interpolation (e.g. cubic spline)
+        - spline interpolation: spline as reverse fft of frequency pass
+            something like this done in LISA to get exact time delays for 
+            TDI calculation (?)
+        
 """
 
 import numpy as np
@@ -204,7 +211,7 @@ def toy_problem(yerr=0.0, seed=None):
     obs_sn = obs_signal + yerr * np.random.randn(n_obs) # signal + noise
     
     ## Use gp to estimate signal at target times
-    target_times = get_target_times(t0, t1, fmin, fmax)
+    target_times = get_target_times(t0, t1, fmax)
     gp_nonoise, cov_nn = gp_estimate(target_times, obs_times, obs_signal, 0.0, kernel_value=T)
     gp_wnoise, cov = gp_estimate(target_times, obs_times, obs_sn, yerr, kernel_value=T)
     
@@ -249,6 +256,8 @@ def toy_problem(yerr=0.0, seed=None):
     
     fig2.tight_layout()
     
+    fig1.savefig('/home/jgoldstein/Documents/GP_fig1.pdf')
+    fig2.savefig('/home/jgoldstein/Documents/GP_fig2.pdf')
     return fig1, fig2
     
     
