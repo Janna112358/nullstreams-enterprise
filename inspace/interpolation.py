@@ -7,10 +7,41 @@ Created on Fri Jan 11 14:27:40 2019
 
 interpolation stuff
 
--sinc interpolatiom
+- target times calculation
+- sinc interpolatiom
 """
-
 import numpy as np
+
+def round_to_p2(x):
+    if x < 1:
+        raise ValueError('Value must be greater or equal to 1')
+    p = np.log2(x)
+    return int(2 ** np.ceil(p))
+
+def get_target_times(ti, tf, fmax=0.1):
+    """
+    Calculate desired target times given initial time, final time and
+    maximum frequency.
+    
+    Time step is calculated using fmax, then the number of points is rounded up
+    to get a power of two.
+    
+    Parameters
+    ----------
+    ti, tf: float
+        initial and final time (days)
+    fmax: float
+        maximum frequency used to determine time step
+        default = 0.1 (days^-1)
+    """
+    T = tf - ti
+    # target time step is given by desired fmax
+    # adjust to get a power of two for the number of samples
+    Dt_try = 2 * (1/fmax)
+    n = round_to_p2(T / Dt_try + 1)
+    #new time step will be Dt = T / (n - 1)
+    target_times = np.linspace(ti, tf, num=n, endpoint=True)
+    return target_times  
 
 def sinc_interpolation(x, x_data, y_data, TNy=1.0):
     """
